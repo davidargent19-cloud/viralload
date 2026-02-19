@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Puzzle Builder & Merge Game</title>
+<style>
+body { font-family: Arial; background: #f4f6f8; padding: 20px; }
+h1, h2 { text-align: center; }
+.section { max-width: 1100px; margin: auto; background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+.category { border: 2px solid #ddd; padding: 12px; margin-bottom: 15px; border-radius: 6px; }
+input[type="text"], select { width: 250px; margin-bottom: 5px; }
+button { padding: 6px 10px; cursor: pointer; margin: 4px 0; }
+#grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; margin-top: 20px; }
+.tile { padding: 10px; border-radius: 6px; cursor: pointer; transition: 0.3s; text-align: center; word-wrap: break-word; }
+.tile.selected { outline: 3px solid black; }
+.tile.collapsing { transform: scale(0.3); opacity: 0; }
+.group-label { font-weight: bold; border-bottom: 2px solid rgba(0,0,0,0.2); margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<h1>Puzzle Builder</h1>
+
+<div class="section" id="builder">
+    <h2>Create Categories</h2>
+    <div style="text-align:center; margin-bottom:10px;">
+        <button id="addCategoryBtn">+ Add Category</button>
+        <button id="generateBtn">Generate Game Link</button>
+    </div>
+    <div id="categories"></div>
+    <p id="linkOutput"></p>
+</div>
+
+<div class="section" id="game" style="display:none;">
+    <h2>Play Puzzle</h2>
+    <div id="grid"></div>
+    <p id="message"></p>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+
+    // -------------------------
+    // Elements
+    // -------------------------
+    const builder = document.getElementById("builder");
+    const gameSection = document.getElementById("game");
+    const categoriesDiv = document.getElementById("categories");
+    const addCategoryBtn = document.getElementById("addCategoryBtn");
+    const generateBtn = document.getElementById("generateBtn");
+    const linkOutput = document.getElementById("linkOutput");
+    const colors = ["red","blue","green","yellow","orange","purple","pink","brown","gray","teal"];
+
+    let categoryCount = 0;  // Track number of categories
+
+    // -------------------------
+    // Add Category
+    // -------------------------
+    function addCategory() {
+        if (categoryCount >= 10) {
+            alert("You can only add up to 10 categories.");
+            return;
+        }
+
+        const categoryDiv = document.createElement("div");
+        categoryDiv.className = "category";
+
+        const title = document.createElement("input");
+        title.type = "text";
+        title.placeholder = "Category Title";
+        categoryDiv.appendChild(title);
+        categoryDiv.appendChild(document.createElement("br"));
+
+        const colorLabel = document.createElement("div");
+        colorLabel.textContent = "Category Color:";
+        categoryDiv.appendChild(colorLabel);
+
+        const colorSelect = document.createElement("select");
+        colors.forEach(c => {
+            const opt = document.createElement("option");
+            opt.value = c;
+            opt.textContent = c;
+            colorSelect.appendChild(opt);
+        });
+        categoryDiv.appendChild(colorSelect);
+        categoryDiv.appendChild(document.createElement("br"));
+
+        const removeBtn = document.createElement("button");
+        removeBtn.textContent = "Remove Category";
+        removeBtn.addEventListener("click", () => {
+            categoriesDiv.removeChild(categoryDiv);
+            categoryCount--;
+            toggleAddCategoryBtn();
+        });
+        categoryDiv.appendChild(removeBtn);
+        categoryDiv.appendChild(document.createElement("br"));
+        categoryDiv.appendChild(document.createElement("br"));
+
+        for (let i = 1; i <= 10; i++) {
+            const input = document.createElement("input");
+            input.type = "text";
+            input.placeholder = "Answer " + i;
+            categoryDiv.appendChild(input);
+            categoryDiv.appendChild(document.createElement("br"));
+        }
+
+        categoriesDiv.appendChild(categoryDiv);
+        categoryCount++;
+        toggleAddCategoryBtn();
+    }
+
+    function toggleAddCategoryBtn() {
+        addCategoryBtn.disabled = categoryCount >= 10;
+    }
+
+    addCategoryBtn.addEventListener("click", addCategory);
+
+    // -------------------------
+    // Generate Game Link
+    // -------------------------
+    generateBtn.addEventListener("click", function() {
+        const categoryEls = categoriesDiv.querySelectorAll(".category");
+        let groups = [];
+        let totalWords = 0;
+
+        for (const cat of categoryEls) {
+            const inputs = cat.querySelectorAll("input[type=text]");
+            const title = inputs[0].value.trim();
+            const words = Array.from(inputs).slice(1).map(i => i.value.trim()).filter(Boolean);
+            const color = cat.querySelector("select").value;
+            totalWords += words.length;
+
+            if (!title || words.length !== 10) {
+                alert("Each category must have a title and exactly 10 words.");
+                return;
+            }
+
+            groups.push({ name: title, color, words });
+        }
+
+        const requiredWords = categoryCount * 10;
+        if (totalWords !== requiredWords) {
+            alert(`You must have exactly ${requiredWords} words in total. Currently: ${totalWords}`);
+            return;
+        }
+
+        // Base64 URL-safe encoding
+        let encoded = btoa(JSON.stringify(groups)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+        const link = location.origin + location.pathname + "#puzzle=" + encoded;
+        linkOutput.innerHTML = `<strong>Share this link:</strong><br><a href="${link}" target="_blank">${link}</a>`;
+    });
+
+    // -------------------------
+    // Merge Game Logic
+    // -------------------------
+    let tiles = [];
+    let selected = [];
+    const grid = document.getElementById("grid");
+    const message = document.getElementById("message");
+
+    function startGame(groups) {
+        tiles = [];
+        groups.forEach(g => {
+            g.words.forEach(w => {
+                tiles.push({ label: w, group: g.name, color: g.color, size: 1 });
+            });
+        });
+        tiles.sort(() => Math.random() - 0.5);
+        selected = [];
+        render();
+    }
+
+    function render() {
+        grid.innerHTML = "";
+        tiles.forEach((t, i) => {
+            const div = document.createElement("div");
+            div.className = "tile";
+            div.style.background = t.color;
+            if (selected.includes(i)) div.classList.add("selected");
+            div.innerHTML = t.label;
+            div.onclick = () => toggle(i);
+            grid.appendChild(div);
+        });
+    }
+
+    function toggle(i) {
+        if (selected.includes(i)) {
+            selected = selected.filter(x => x !== i);
+        } else {
+            selected.push(i);
+        }
+        render();
+        check();
+    }
+
+    function check() {
+        const total = selected.reduce((s, i) => s + tiles[i].size, 0);
+        if (total !== 10) return;
+        const group = tiles[selected[0]].group;
+        if (!selected.every(i => tiles[i].group === group)) {
+            selected = [];
+            render();
+            return;
+        }
+        const els = [...grid.children];
+        selected.forEach(i => els[i].classList.add("collapsing"));
+        setTimeout(() => {
+            const color = tiles[selected[0]].color;
+            const words = selected.map(i => `<div>${tiles[i].label}</div>`).join("");
+            selected.sort((a, b) => b - a).forEach(i => tiles.splice(i, 1));
+            tiles.push({ label: `<div class="group-label">${group}</div>${words}`, group, color, size: 10 });
+            selected = [];
+            render();
+            if (tiles.length === 1) message.textContent = "🎉 Puzzle Complete!";
+        }, 300);
+    }
+
+    // -------------------------
+    // Puzzle Hash Handling
+    // -------------------------
+    function loadPuzzleFromHash() {
+        const hash = location.hash;
+        if (hash.startsWith("#puzzle=")) {
+            try {
+                let encoded = hash.replace("#puzzle=", "").replace(/-/g, "+").replace(/_/g, "/");
+                // Add padding back for proper Base64 decoding
+                while (encoded.length % 4) encoded += "=";
+                const groups = JSON.parse(atob(encoded));
+                builder.style.display = "none";
+                gameSection.style.display = "block";
+                startGame(groups);
+            } catch (err) {
+                console.error("Failed to load puzzle:", err);
+                alert("Invalid puzzle link!");
+            }
+        }
+    }
+
+    loadPuzzleFromHash();
+    window.addEventListener("hashchange", loadPuzzleFromHash);
+
+    // -------------------------
+    // Add first category on load
+    // -------------------------
+    addCategory();
+
+});
+</script>
+
+</body>
+</html>
