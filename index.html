@@ -139,29 +139,47 @@ function toggle(i){
     if(selected.length===2) checkPair(); 
 }
 
-// Check the selected pair
+// ---------------- Check Pair & Progressive Merge ----------------
 function checkPair(){
     const a=tiles[selected[0]]; const b=tiles[selected[1]];
+
     if(a.group!==b.group){
-        // Incorrect
-        selected=[]; render();
-        return;
+        // Incorrect pair
+        selected=[]; render(); return;
     }
 
-    // Correct - merge tiles
-    const groupName = a.group;
-    const currentGroupTiles = tiles.filter(t=>t.group===groupName && !t.merged);
-    const isFinalMerge = currentGroupTiles.length===2; // This merge completes the category
+    const groupName=a.group;
+    const groupSize=10; // Total tiles per category
+    const newSize=a.size+b.size;
+    const isFinalMerge=newSize===groupSize;
 
     const els=[...grid.children];
     selected.forEach(i=>els[i].classList.add("collapsing"));
 
     setTimeout(()=>{
-        const mergedLabel = isFinalMerge?`<div class="group-label">${groupName}</div>${a.label}<br>${b.label}`:a.label+"<br>"+b.label;
+        // Merge labels
+        let mergedLabel;
+        if(isFinalMerge){
+            mergedLabel=`<div class="group-label">${groupName}</div>${a.label}<br>${b.label}`;
+        } else {
+            mergedLabel=a.label+"<br>"+b.label;
+        }
+
+        // Remove selected tiles
         selected.sort((x,y)=>y-x).forEach(i=>tiles.splice(i,1));
-        tiles.push({label:mergedLabel, group:groupName, color:a.color, size:a.size+b.size, merged:isFinalMerge});
+
+        // Add merged tile
+        tiles.push({
+            label: mergedLabel,
+            group: groupName,
+            color: a.color,
+            size: newSize,
+            merged: isFinalMerge
+        });
+
         selected=[];
         render();
+
         if(tiles.every(t=>t.merged)) message.textContent="🎉 Puzzle Complete!";
     },300);
 }
