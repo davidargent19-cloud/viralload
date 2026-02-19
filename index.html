@@ -14,6 +14,7 @@ button { padding: 6px 10px; cursor: pointer; margin: 4px 0; }
 .tile { padding: 10px; border-radius: 6px; cursor: pointer; transition: 0.3s; text-align: center; word-wrap: break-word; background: lightgray; }
 .tile.selected { outline: 3px solid black; }
 .tile.collapsing { transform: scale(0.3); opacity: 0; transition: 0.3s; }
+.tile.shake { animation: shake 0.4s; }
 .group-label { font-weight: bold; border-bottom: 2px solid rgba(0,0,0,0.2); margin-bottom: 4px; }
 
 /* Red X overlay */
@@ -31,6 +32,18 @@ button { padding: 6px 10px; cursor: pointer; margin: 4px 0; }
     transform: translate(-50%, -50%) scale(1);
     opacity: 1;
 }
+
+/* Shake animation */
+@keyframes shake {
+  0% { transform: translateX(0); }
+  25% { transform: translateX(-8px); }
+  50% { transform: translateX(8px); }
+  75% { transform: translateX(-8px); }
+  100% { transform: translateX(0); }
+}
+
+/* Stats */
+#stats { text-align:center; margin-top: 10px; font-size: 16px; }
 </style>
 </head>
 <body>
@@ -52,6 +65,9 @@ button { padding: 6px 10px; cursor: pointer; margin: 4px 0; }
     <div id="grid">
         <div id="redX">✖</div>
     </div>
+    <div id="stats">
+        Mistakes: <span id="mistakes">0</span> | Time: <span id="timer">0:00</span>
+    </div>
     <p id="message"></p>
 </div>
 
@@ -65,9 +81,14 @@ const addCategoryBtn = document.getElementById("addCategoryBtn");
 const generateBtn = document.getElementById("generateBtn");
 const linkOutput = document.getElementById("linkOutput");
 const redX = document.getElementById("redX");
+const mistakesSpan = document.getElementById("mistakes");
+const timerSpan = document.getElementById("timer");
 const colors = ["red","blue","green","yellow","orange","purple","pink","brown","gray","teal"];
 
 let categoryCount = 0;
+let mistakes = 0;
+let timerInterval;
+let secondsElapsed = 0;
 
 // ---------------- Add Category ----------------
 function addCategory() {
@@ -126,6 +147,19 @@ let selected=[];
 const grid=document.getElementById("grid");
 const message=document.getElementById("message");
 
+// ---------------- Timer ----------------
+function startTimer(){
+    secondsElapsed=0;
+    timerSpan.textContent="0:00";
+    clearInterval(timerInterval);
+    timerInterval = setInterval(()=>{
+        secondsElapsed++;
+        const mins=Math.floor(secondsElapsed/60);
+        const secs=secondsElapsed%60;
+        timerSpan.textContent=`${mins}:${secs.toString().padStart(2,'0')}`;
+    },1000);
+}
+
 function startGame(groups){
     tiles=[];
     groups.forEach(g=>{
@@ -135,6 +169,9 @@ function startGame(groups){
     });
     tiles.sort(()=>Math.random()-0.5);
     selected=[];
+    mistakes=0;
+    mistakesSpan.textContent = mistakes;
+    startTimer();
     render();
 }
 
@@ -151,10 +188,15 @@ function render(){
     });
 }
 
-// ---------------- Red X Animation ----------------
+// ---------------- Red X + Shake ----------------
 function showRedX(){
     redX.classList.add("show");
-    setTimeout(()=>redX.classList.remove("show"), 600);
+    selected.forEach(i=>{
+        const tileEl = grid.querySelectorAll(".tile:not(#redX)")[i];
+        tileEl.classList.add("shake");
+        setTimeout(()=>tileEl.classList.remove("shake"),400);
+    });
+    setTimeout(()=>redX.classList.remove("show"),600);
 }
 
 // ---------------- Tile Selection ----------------
@@ -170,13 +212,17 @@ function checkPair(){
     const a=tiles[selected[0]]; const b=tiles[selected[1]];
 
     if(a.group!==b.group){
-        // Incorrect: show red X
+        // Incorrect: show red X, shake, update mistakes
+        mistakes++;
+        mistakesSpan.textContent = mistakes;
         showRedX();
-        selected=[]; render(); return;
+        selected=[];
+        render();
+        return;
     }
 
     const groupName=a.group;
-    const groupSize=10; // total tiles per category
+    const groupSize=10;
     const newSize=a.size+b.size;
     const isFinalMerge=newSize===groupSize;
 
@@ -189,7 +235,10 @@ function checkPair(){
         tiles.push({label:mergedLabel, group:groupName, color:a.color, size:newSize, merged:isFinalMerge});
         selected=[];
         render();
-        if(tiles.every(t=>t.merged)) message.textContent="FUCKING NERD!";
+        if(tiles.every(t=>t.merged)){
+            message.textContent="🎉 Puzzle Complete!";
+            clearInterval(timerInterval);
+        }
     },300);
 }
 
