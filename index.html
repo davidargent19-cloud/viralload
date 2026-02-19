@@ -10,11 +10,27 @@ h1, h2 { text-align: center; }
 .category { border: 2px solid #ddd; padding: 12px; margin-bottom: 15px; border-radius: 6px; }
 input[type="text"], select { width: 250px; margin-bottom: 5px; }
 button { padding: 6px 10px; cursor: pointer; margin: 4px 0; }
-#grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; margin-top: 20px; }
+#grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; margin-top: 20px; position: relative; }
 .tile { padding: 10px; border-radius: 6px; cursor: pointer; transition: 0.3s; text-align: center; word-wrap: break-word; background: lightgray; }
 .tile.selected { outline: 3px solid black; }
 .tile.collapsing { transform: scale(0.3); opacity: 0; transition: 0.3s; }
 .group-label { font-weight: bold; border-bottom: 2px solid rgba(0,0,0,0.2); margin-bottom: 4px; }
+
+/* Red X overlay */
+#redX {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    font-size: 100px;
+    color: red;
+    pointer-events: none;
+    opacity: 0;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+#redX.show {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+}
 </style>
 </head>
 <body>
@@ -33,7 +49,9 @@ button { padding: 6px 10px; cursor: pointer; margin: 4px 0; }
 
 <div class="section" id="game" style="display:none;">
     <h2>Play Puzzle</h2>
-    <div id="grid"></div>
+    <div id="grid">
+        <div id="redX">✖</div>
+    </div>
     <p id="message"></p>
 </div>
 
@@ -46,6 +64,7 @@ const categoriesDiv = document.getElementById("categories");
 const addCategoryBtn = document.getElementById("addCategoryBtn");
 const generateBtn = document.getElementById("generateBtn");
 const linkOutput = document.getElementById("linkOutput");
+const redX = document.getElementById("redX");
 const colors = ["red","blue","green","yellow","orange","purple","pink","brown","gray","teal"];
 
 let categoryCount = 0;
@@ -120,7 +139,7 @@ function startGame(groups){
 }
 
 function render(){
-    grid.innerHTML="";
+    grid.querySelectorAll(".tile:not(#redX)").forEach(t=>t.remove());
     tiles.forEach((t,i)=>{
         const div=document.createElement("div");
         div.className="tile";
@@ -132,54 +151,44 @@ function render(){
     });
 }
 
-function toggle(i){
-    if(selected.includes(i)){ selected=selected.filter(x=>x!==i); render(); return; }
-    if(selected.length>=2){ return; } // Only 2 tiles can be selected
-    selected.push(i); render();
-    if(selected.length===2) checkPair(); 
+// ---------------- Red X Animation ----------------
+function showRedX(){
+    redX.classList.add("show");
+    setTimeout(()=>redX.classList.remove("show"), 600);
 }
 
-// ---------------- Check Pair & Progressive Merge ----------------
+// ---------------- Tile Selection ----------------
+function toggle(i){
+    if(selected.includes(i)){ selected=selected.filter(x=>x!==i); render(); return; }
+    if(selected.length>=2){ return; } // Only 2 tiles
+    selected.push(i); render();
+    if(selected.length===2) checkPair();
+}
+
+// ---------------- Check Pair & Merge ----------------
 function checkPair(){
     const a=tiles[selected[0]]; const b=tiles[selected[1]];
 
     if(a.group!==b.group){
-        // Incorrect pair
+        // Incorrect: show red X
+        showRedX();
         selected=[]; render(); return;
     }
 
     const groupName=a.group;
-    const groupSize=10; // Total tiles per category
+    const groupSize=10; // total tiles per category
     const newSize=a.size+b.size;
     const isFinalMerge=newSize===groupSize;
 
-    const els=[...grid.children];
+    const els=[...grid.querySelectorAll(".tile:not(#redX)")];
     selected.forEach(i=>els[i].classList.add("collapsing"));
 
     setTimeout(()=>{
-        // Merge labels
-        let mergedLabel;
-        if(isFinalMerge){
-            mergedLabel=`<div class="group-label">${groupName}</div>${a.label}<br>${b.label}`;
-        } else {
-            mergedLabel=a.label+"<br>"+b.label;
-        }
-
-        // Remove selected tiles
+        const mergedLabel = isFinalMerge ? `<div class="group-label">${groupName}</div>${a.label}<br>${b.label}` : a.label+"<br>"+b.label;
         selected.sort((x,y)=>y-x).forEach(i=>tiles.splice(i,1));
-
-        // Add merged tile
-        tiles.push({
-            label: mergedLabel,
-            group: groupName,
-            color: a.color,
-            size: newSize,
-            merged: isFinalMerge
-        });
-
+        tiles.push({label:mergedLabel, group:groupName, color:a.color, size:newSize, merged:isFinalMerge});
         selected=[];
         render();
-
         if(tiles.every(t=>t.merged)) message.textContent="🎉 Puzzle Complete!";
     },300);
 }
