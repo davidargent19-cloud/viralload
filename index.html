@@ -207,12 +207,12 @@ function toggle(i){
     if(selected.length===2) checkPair();
 }
 
-// ---------------- Check Pair & Merge ----------------
+// ---------------- Check Pair & Merge into Second Tile ----------------
 function checkPair(){
-    const a=tiles[selected[0]]; const b=tiles[selected[1]];
+    const first = tiles[selected[0]];
+    const second = tiles[selected[1]];
 
-    if(a.group!==b.group){
-        // Incorrect: show red X, shake, update mistakes
+    if(first.group !== second.group){
         mistakes++;
         mistakesSpan.textContent = mistakes;
         showRedX();
@@ -221,25 +221,39 @@ function checkPair(){
         return;
     }
 
-    const groupName=a.group;
-    const groupSize=10;
-    const newSize=a.size+b.size;
-    const isFinalMerge=newSize===groupSize;
+    const groupName = first.group;
+    const groupSize = 10;
+    const newSize = first.size + second.size;
+    const isFinalMerge = newSize === groupSize;
 
-    const els=[...grid.querySelectorAll(".tile:not(#redX)")];
-    selected.forEach(i=>els[i].classList.add("collapsing"));
+    const els = [...grid.querySelectorAll(".tile:not(#redX)")];
+    selected.forEach(i => els[i].classList.add("collapsing"));
 
     setTimeout(()=>{
-        const mergedLabel = isFinalMerge ? `<div class="group-label">${groupName}</div>${a.label}<br>${b.label}` : a.label+"<br>"+b.label;
-        selected.sort((x,y)=>y-x).forEach(i=>tiles.splice(i,1));
-        tiles.push({label:mergedLabel, group:groupName, color:a.color, size:newSize, merged:isFinalMerge});
+        const mergedLabel = isFinalMerge
+            ? `<div class="group-label">${groupName}</div>${first.label}<br>${second.label}`
+            : first.label + "<br>" + second.label;
+
+        // Remove first tile
+        tiles.splice(selected[0], 1);
+
+        // Update second tile with merged data (adjust index if first < second)
+        const secondIndex = selected[1] - (selected[0] < selected[1] ? 1 : 0);
+        tiles[secondIndex] = {
+            ...second,
+            label: mergedLabel,
+            size: newSize,
+            merged: isFinalMerge
+        };
+
         selected=[];
         render();
-        if(tiles.every(t=>t.merged)){
-            message.textContent="FUCKING NERD!";
+
+        if(tiles.every(t => t.merged)){
+            message.textContent = "FUCKING NERD!";
             clearInterval(timerInterval);
         }
-    },300);
+    }, 300);
 }
 
 // ---------------- Puzzle Hash Handling ----------------
