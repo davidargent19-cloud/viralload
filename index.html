@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Puzzle Builder</title>
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #f2f4f7;
+    padding: 20px;
+}
+
+h1 {
+    text-align: center;
+}
+
+#categories {
+    max-width: 800px;
+    margin: auto;
+}
+
+.category {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 2px solid #ddd;
+}
+
+.category-header {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.category input[type="text"] {
+    width: 100%;
+    padding: 5px;
+}
+
+.word-inputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+
+.word-inputs input {
+    padding: 5px;
+}
+
+button {
+    padding: 8px 12px;
+    cursor: pointer;
+    margin-top: 10px;
+}
+</style>
+</head>
+<body>
+
+<h1>Puzzle Builder</h1>
+
+<div style="text-align:center; margin-bottom:20px;">
+    <button onclick="addCategory()">+ Add Category</button>
+</div>
+
+<div id="categories"></div>
+
+<script>
+function addCategory() {
+
+    const container = document.getElementById("categories");
+
+    const categoryDiv = document.createElement("div");
+    categoryDiv.className = "category";
+
+    categoryDiv.innerHTML = `
+        <div class="category-header">
+            <input type="text" placeholder="Category Title">
+            <input type="color" value="#cccccc">
+            <button onclick="this.closest('.category').remove()">Remove</button>
+        </div>
+
+        <div class="word-inputs">
+            ${Array.from({length:10}, (_,i)=>
+                <input type="text" placeholder="Answer ${i+1}">
+            ).join("")}
+        </div>
+    `;
+
+    container.appendChild(categoryDiv);
+}
+</script>
+
+</body>
+</html>
